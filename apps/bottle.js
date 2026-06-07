@@ -1,7 +1,13 @@
 import { loadConfig } from '../lib/config.js'
 import { commonButtons } from '../lib/buttons.js'
 import { bottleCounts, safeSnippet, statusText } from '../lib/bottle.js'
-import { generateBottleId, getDb } from '../lib/database.js'
+import {
+    generateBottleId,
+    getDailyApprovedBottleCount,
+    getDb,
+    setBottleModeration,
+    setCommentModeration
+} from '../lib/database.js'
 import { checkContentSafety } from '../lib/moderation.js'
 import { codeBlock, document, fields, formatTime, heading, status } from '../lib/markdown.js'
 import { sendReply } from '../lib/reply.js'
@@ -24,8 +30,7 @@ function cooldownRemaining(key, seconds) {
 function moderationMessage(result) {
     if (result.status === 'approved') return '内容已通过审核'
     if (result.status === 'pending') return result.reason
-    // return `内容未通过审核：${result.reason}`
-    return `内容未通过审核`
+    return `内容未通过审核：${result.reason}`
 }
 
 export class DriftBottle extends plugin {
@@ -39,11 +44,11 @@ export class DriftBottle extends plugin {
                 { reg: '^#?(漂流瓶|瓶子)(状态|统计)$', fnc: 'bottleStatus' },
                 { reg: '^#?(扔漂流瓶|扔瓶子)\\s*(.*)$', fnc: 'throwBottle' },
                 { reg: '^#?(捡漂流瓶|捡瓶子)$', fnc: 'pickupBottle' },
-                { reg: '^#?(评论漂流瓶|评论瓶子)\\s+(\\d{6})\\s+(.+)$', fnc: 'commentBottle' },
+                { reg: '^#?(评论漂流瓶|评论瓶子)\\s*(\\d{6})\\s*(.+)$', fnc: 'commentBottle' },
                 { reg: '^#?(我的漂流瓶|我的瓶子)$', fnc: 'myBottles' },
-                { reg: '^#?(查看评论|漂流瓶评论)\\s+(\\d{6})$', fnc: 'viewComments' },
-                { reg: '^#?(捡回漂流瓶|捡回瓶子)\\s+(\\d{6})$', fnc: 'reclaimBottle' },
-                { reg: '^#?(重新扔漂流瓶|重新扔瓶子)\\s+(\\d{6})$', fnc: 'rethrowBottle' },
+                { reg: '^#?(查看评论|漂流瓶评论)\\s*(\\d{6})$', fnc: 'viewComments' },
+                { reg: '^#?(捡回漂流瓶|捡回瓶子)\\s*(\\d{6})$', fnc: 'reclaimBottle' },
+                { reg: '^#?(重新扔漂流瓶|重新扔瓶子)\\s*(\\d{6})$', fnc: 'rethrowBottle' },
                 { reg: '^#?(漂流瓶帮助|瓶子帮助|漂流瓶|瓶子)$', fnc: 'showHelp' }
             ]
         })
@@ -66,6 +71,18 @@ export class DriftBottle extends plugin {
         }
 
         const db = await getDb()
+        const approvedToday = await getDailyApprovedBottleCount(userId)
+        if (
+            config.limits.dailyApprovedBottles > 0
+            && approvedToday >= config.limits.dailyApprovedBottles
+        ) {
+            await sendReply(e, status(
+                '今日漂流瓶额度已用完',
+                `每天最多通过 ${config.limits.dailyApprovedBottles} 个漂流瓶，未通过的不计入额度`
+            ), [commonButtons.mine()])
+            return true
+        }
+
         const count = await db.get(
             "SELECT COUNT(*) count FROM bottles WHERE thrower = ? AND location = 'sea'",
             userId
@@ -91,7 +108,19 @@ export class DriftBottle extends plugin {
         ])
 
         const result = await checkContentSafety(content)
-        await db.run('UPDATE bottles SET status = ? WHERE id = ?', [result.status, bottleId])
+        try {
+            await setBottleModeration(
+                bottleId,
+                result.status,
+                result.reason,
+                { dailyLimit: config.limits.dailyApprovedBottles }
+            )
+        } catch (error) {
+            result.safe = false
+            result.status = 'rejected'
+            result.reason = error.message
+            await setBottleModeration(bottleId, 'rejected', result.reason)
+        }
 
         const title = result.status === 'approved'
             ? '漂流瓶已扔进海里'
@@ -171,7 +200,7 @@ export class DriftBottle extends plugin {
     }
 
     async commentBottle(e) {
-        const match = e.msg.match(/^#?(评论漂流瓶|评论瓶子)\s+(\d{6})\s+(.+)$/)
+        const match = e.msg.match(/^#?(评论漂流瓶|评论瓶子)\s*(\d{6})\s*(.+)$/)
         if (!match) {
             await sendReply(e, status('评论格式错误', '示例：#评论漂流瓶 000001 写得真不错'))
             return true
@@ -210,7 +239,7 @@ export class DriftBottle extends plugin {
 
         await sendReply(e, status('正在审核评论', '评论已保存，请稍候', [['漂流瓶 ID', bottleId]]))
         const result = await checkContentSafety(content)
-        await db.run('UPDATE comments SET status = ? WHERE id = ?', [result.status, insert.lastID])
+        await setCommentModeration(insert.lastID, result.status, result.reason)
 
         const title = result.status === 'approved'
             ? '评论已添加'
@@ -233,7 +262,7 @@ export class DriftBottle extends plugin {
     }
 
     async viewComments(e) {
-        const bottleId = e.msg.match(/^#?(查看评论|漂流瓶评论)\s+(\d{6})$/)?.[2]
+        const bottleId = e.msg.match(/^#?(查看评论|漂流瓶评论)\s*(\d{6})$/)?.[2]
         if (!bottleId) return false
 
         const config = loadConfig()
@@ -333,7 +362,7 @@ export class DriftBottle extends plugin {
     }
 
     async reclaimBottle(e) {
-        const bottleId = e.msg.match(/^#?(捡回漂流瓶|捡回瓶子)\s+(\d{6})$/)?.[2]
+        const bottleId = e.msg.match(/^#?(捡回漂流瓶|捡回瓶子)\s*(\d{6})$/)?.[2]
         if (!bottleId) return false
 
         const config = loadConfig()
@@ -377,7 +406,7 @@ export class DriftBottle extends plugin {
     }
 
     async rethrowBottle(e) {
-        const bottleId = e.msg.match(/^#?(重新扔漂流瓶|重新扔瓶子)\s+(\d{6})$/)?.[2]
+        const bottleId = e.msg.match(/^#?(重新扔漂流瓶|重新扔瓶子)\s*(\d{6})$/)?.[2]
         if (!bottleId) return false
 
         const config = loadConfig()
@@ -450,8 +479,8 @@ export class DriftBottle extends plugin {
             fields([
                 ['扔漂流瓶', '#扔漂流瓶 内容'],
                 ['捡漂流瓶', '#捡漂流瓶'],
-                ['评论漂流瓶', '#评论漂流瓶 ID 内容'],
-                ['查看评论', '#查看评论 ID'],
+                ['评论漂流瓶', '#评论漂流瓶ID内容（空格可选）'],
+                ['查看评论', '#查看评论ID（空格可选）'],
                 ['我的漂流瓶', '#我的漂流瓶'],
                 ['捡回漂流瓶', '#捡回漂流瓶 ID'],
                 ['重新扔漂流瓶', '#重新扔漂流瓶 ID'],

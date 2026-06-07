@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process'
 
 const root = process.cwd()
 const files = ['index.js', 'guoba.support.js']
+files.push(path.join('resources', 'bottle', 'app.js'))
 for (const dir of ['apps', 'lib']) {
     for (const file of fs.readdirSync(path.join(root, dir))) {
         if (file.endsWith('.js')) files.push(path.join(dir, file))

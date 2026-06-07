@@ -119,6 +119,14 @@ const schemas = [
         component: 'SOFT_GROUP_BEGIN'
     },
     {
+        field: 'limits.dailyApprovedBottles',
+        label: '每日审核通过上限',
+        bottomHelpMessage: '每个用户每天最多审核通过的漂流瓶数；未通过和待审核不计数，0 表示不限制。',
+        component: 'InputNumber',
+        required: true,
+        componentProps: { min: 0, max: 1000 }
+    },
+    {
         field: 'limits.maxBottlesPerUser',
         label: '每人海中瓶子上限',
         component: 'InputNumber',
@@ -189,6 +197,35 @@ const schemas = [
         label: '按钮输出',
         bottomHelpMessage: '平台不支持按钮时，插件仍会自动回退为文字命令。',
         component: 'Switch'
+    },
+    {
+        label: '网页管理',
+        component: 'SOFT_GROUP_BEGIN'
+    },
+    {
+        field: 'web.password',
+        label: '管理页面密码',
+        bottomHelpMessage: '访问 /bottle 时使用。留空会禁用网页登录，建议设置高强度独立密码。',
+        component: 'InputPassword',
+        componentProps: {
+            placeholder: '请输入管理密码',
+            autocomplete: 'new-password'
+        }
+    },
+    {
+        field: 'web.sessionDays',
+        label: '浏览器登录保持天数',
+        bottomHelpMessage: '签名 Cookie 的有效天数，机器人重启不会使其失效。',
+        component: 'InputNumber',
+        required: true,
+        componentProps: { min: 1, max: 365 }
+    },
+    {
+        field: 'web.pageSize',
+        label: '管理页面每页条数',
+        component: 'InputNumber',
+        required: true,
+        componentProps: { min: 5, max: 100 }
     }
 ]
 
@@ -217,8 +254,17 @@ function validateConfig(config) {
     if (!Number.isFinite(config.limits.maxCommentsPerBottle) || config.limits.maxCommentsPerBottle < 0) {
         return 'maxCommentsPerBottle 必须大于等于 0'
     }
+    if (!Number.isFinite(config.limits.dailyApprovedBottles) || config.limits.dailyApprovedBottles < 0) {
+        return 'dailyApprovedBottles 必须大于等于 0'
+    }
     for (const value of Object.values(config.cooldowns)) {
         if (!Number.isFinite(value) || value < 0) return '冷却时间必须大于等于 0'
+    }
+    if (!Number.isFinite(config.web.sessionDays) || config.web.sessionDays < 1) {
+        return '网页登录保持天数必须大于等于 1'
+    }
+    if (!Number.isFinite(config.web.pageSize) || config.web.pageSize < 5) {
+        return '网页每页条数必须大于等于 5'
     }
     return ''
 }

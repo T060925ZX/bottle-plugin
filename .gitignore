@@ -1,4 +1,6 @@
 node_modules/
 data/*.db
 data/*.db-*
+data/admin-session.key
+config/config.json
 config/*.bak.*

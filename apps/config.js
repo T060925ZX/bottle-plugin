@@ -14,6 +14,7 @@ const EDITABLE_KEYS = new Set([
     'moderation.gemini.apiKey',
     'moderation.gemini.baseUrl',
     'moderation.gemini.model',
+    'limits.dailyApprovedBottles',
     'limits.maxBottlesPerUser',
     'limits.maxCommentsPerBottle',
     'limits.maxCommentsDisplay',
@@ -22,7 +23,10 @@ const EDITABLE_KEYS = new Set([
     'cooldowns.pickupSeconds',
     'cooldowns.reclaimSeconds',
     'output.markdown',
-    'output.buttons'
+    'output.buttons',
+    'web.password',
+    'web.sessionDays',
+    'web.pageSize'
 ])
 
 function parseValue(raw) {
@@ -49,10 +53,22 @@ function validate(key, value) {
         return `${key} 必须是 true 或 false`
     }
     if (
-        (key.startsWith('limits.') || key.startsWith('cooldowns.') || key === 'moderation.timeout')
+        (
+            key.startsWith('limits.')
+            || key.startsWith('cooldowns.')
+            || key === 'moderation.timeout'
+            || key === 'web.sessionDays'
+            || key === 'web.pageSize'
+        )
         && (!Number.isFinite(value) || value < 0)
     ) {
         return `${key} 必须是大于等于 0 的数字`
+    }
+    if (key === 'web.sessionDays' && value < 1) {
+        return 'web.sessionDays 必须大于等于 1'
+    }
+    if (key === 'web.pageSize' && value < 5) {
+        return 'web.pageSize 必须大于等于 5'
     }
     return ''
 }
@@ -87,8 +103,12 @@ export class BottleConfig extends plugin {
                 ['Gemini API Key', maskSecret(config.moderation.gemini.apiKey)],
                 ['Gemini 地址', config.moderation.gemini.baseUrl],
                 ['Gemini 模型', config.moderation.gemini.model],
+                ['每日审核通过上限', config.limits.dailyApprovedBottles],
                 ['每人海中瓶子上限', config.limits.maxBottlesPerUser],
                 ['单瓶评论上限', config.limits.maxCommentsPerBottle],
+                ['网页管理密码', maskSecret(config.web.password)],
+                ['网页登录保持', `${config.web.sessionDays} 天`],
+                ['网页每页条数', config.web.pageSize],
                 ['Markdown 输出', config.output.markdown],
                 ['按钮输出', config.output.buttons]
             ])
@@ -116,7 +136,9 @@ export class BottleConfig extends plugin {
         const config = loadConfig()
         setConfigValue(config, key, value)
         saveConfig(config)
-        const displayed = key.endsWith('.apiKey') ? maskSecret(String(value)) : value
+        const displayed = (key.endsWith('.apiKey') || key === 'web.password')
+            ? maskSecret(String(value))
+            : value
         await sendReply(e, status('配置已更新', '', [[key, displayed]]))
         return true
     }
@@ -130,7 +152,8 @@ export class BottleConfig extends plugin {
             heading('可配置项', 3),
             keys.map(key => {
                 const value = getConfigValue(config, key)
-                return `- \`${key}\`：${key.endsWith('.apiKey') ? maskSecret(String(value || '')) : value ?? ''}`
+                const secret = key.endsWith('.apiKey') || key === 'web.password'
+                return `- \`${key}\`：${secret ? maskSecret(String(value || '')) : value ?? ''}`
             }).join('\n'),
             heading('示例', 3),
             [

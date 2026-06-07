@@ -16,6 +16,7 @@
     }
   },
   "limits": {
+    "dailyApprovedBottles": 5,
     "maxBottlesPerUser": 100,
     "maxCommentsPerBottle": 50,
     "maxCommentsDisplay": 10,
@@ -29,5 +30,10 @@
   "output": {
     "markdown": true,
     "buttons": true
+  },
+  "web": {
+    "password": "",
+    "sessionDays": 30,
+    "pageSize": 20
   }
 }
