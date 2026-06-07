@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>漂流瓶审核管理</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #07131d;
+            --panel: rgba(15, 35, 49, .88);
+            --panel-2: rgba(20, 46, 62, .82);
+            --line: rgba(125, 211, 252, .16);
+            --text: #e8f4fa;
+            --muted: #8da9b8;
+            --blue: #38bdf8;
+            --green: #34d399;
+            --yellow: #fbbf24;
+            --red: #fb7185;
+            --shadow: 0 24px 80px rgba(0, 0, 0, .32);
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--text);
+            font: 14px/1.6 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background:
+                radial-gradient(circle at 12% 6%, rgba(14, 165, 233, .18), transparent 28rem),
+                radial-gradient(circle at 90% 18%, rgba(52, 211, 153, .10), transparent 24rem),
+                linear-gradient(145deg, #050d14, var(--bg));
+        }
+        button, input, select { font: inherit; }
+        button { cursor: pointer; }
+        .shell { width: min(1480px, calc(100% - 32px)); margin: 0 auto; padding: 32px 0 60px; }
+        .header {
+            display: flex; align-items: end; justify-content: space-between; gap: 24px;
+            margin-bottom: 24px;
+        }
+        .eyebrow { color: var(--blue); font-size: 12px; font-weight: 800; letter-spacing: .18em; text-transform: uppercase; }
+        h1 { margin: 4px 0 2px; font-size: clamp(28px, 5vw, 48px); line-height: 1.05; letter-spacing: -.04em; }
+        .subtitle { margin: 0; color: var(--muted); }
+        .header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+        .btn {
+            border: 1px solid var(--line); border-radius: 10px; padding: 8px 13px;
+            color: var(--text); background: rgba(255,255,255,.045);
+            transition: .18s ease;
+        }
+        .btn:hover { transform: translateY(-1px); border-color: rgba(56,189,248,.48); background: rgba(56,189,248,.10); }
+        .btn.primary { color: #03202b; border-color: transparent; background: var(--blue); font-weight: 800; }
+        .btn.success { color: #05261d; border-color: transparent; background: var(--green); font-weight: 800; }
+        .btn.warning { color: #2b1d00; border-color: transparent; background: var(--yellow); font-weight: 800; }
+        .btn.danger { color: #2d0710; border-color: transparent; background: var(--red); font-weight: 800; }
+        .btn.small { padding: 5px 9px; border-radius: 8px; font-size: 12px; }
+        .stats {
+            display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px;
+        }
+        .stat, .toolbar, .table-card, .drawer-panel {
+            border: 1px solid var(--line); background: var(--panel); box-shadow: var(--shadow); backdrop-filter: blur(18px);
+        }
+        .stat { border-radius: 14px; padding: 16px; }
+        .stat span { display: block; color: var(--muted); font-size: 12px; }
+        .stat strong { display: block; margin-top: 4px; font-size: 25px; letter-spacing: -.03em; }
+        .stat.pending strong { color: var(--yellow); }
+        .stat.approved strong { color: var(--green); }
+        .stat.rejected strong { color: var(--red); }
+        .toolbar {
+            display: grid; grid-template-columns: minmax(220px, 1fr) 180px 160px auto;
+            gap: 10px; padding: 14px; border-radius: 14px; margin-bottom: 14px;
+        }
+        input, select {
+            width: 100%; color: var(--text); border: 1px solid var(--line); border-radius: 10px;
+            outline: none; padding: 9px 11px; background: rgba(2, 12, 20, .72);
+        }
+        input:focus, select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(56,189,248,.12); }
+        .table-card { overflow: hidden; border-radius: 16px; }
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 980px; }
+        th, td { padding: 13px 14px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+        th { color: var(--muted); font-size: 12px; letter-spacing: .04em; background: rgba(2,12,20,.42); }
+        tbody tr { transition: background .16s ease; }
+        tbody tr:hover { background: rgba(56,189,248,.045); }
+        .id { color: var(--blue); font-weight: 800; font-variant-numeric: tabular-nums; }
+        .content { max-width: 420px; white-space: pre-wrap; word-break: break-word; }
+        .meta { color: var(--muted); font-size: 12px; }
+        .badge {
+            display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 3px 8px;
+            font-size: 12px; font-weight: 800; background: rgba(255,255,255,.06);
+        }
+        .badge.pending { color: var(--yellow); background: rgba(251,191,36,.10); }
+        .badge.approved { color: var(--green); background: rgba(52,211,153,.10); }
+        .badge.rejected { color: var(--red); background: rgba(251,113,133,.10); }
+        .badge.sea { color: var(--blue); background: rgba(56,189,248,.10); }
+        .row-actions { display: flex; gap: 6px; flex-wrap: wrap; min-width: 210px; }
+        .pagination { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 13px 14px; }
+        .empty { padding: 64px 20px; text-align: center; color: var(--muted); }
+        .drawer {
+            position: fixed; inset: 0; z-index: 50; display: none; background: rgba(0, 0, 0, .56);
+        }
+        .drawer.open { display: block; }
+        .drawer-panel {
+            position: absolute; top: 0; right: 0; width: min(760px, 100%); height: 100%;
+            overflow-y: auto; padding: 24px; border-radius: 22px 0 0 22px;
+        }
+        .drawer-head { display: flex; justify-content: space-between; align-items: start; gap: 16px; margin-bottom: 20px; }
+        .drawer h2, .drawer h3 { margin: 0; }
+        .section { margin-top: 22px; }
+        .full-content {
+            margin-top: 10px; padding: 14px; border: 1px solid var(--line); border-radius: 12px;
+            background: rgba(2,12,20,.6); white-space: pre-wrap; word-break: break-word;
+        }
+        .record {
+            padding: 12px 0; border-bottom: 1px solid var(--line);
+        }
+        .record-head { display: flex; justify-content: space-between; gap: 12px; }
+        .record-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+        .toast {
+            position: fixed; left: 50%; bottom: 28px; z-index: 100; transform: translate(-50%, 20px);
+            padding: 10px 16px; border-radius: 10px; color: var(--text); background: #122c3b;
+            border: 1px solid var(--line); opacity: 0; pointer-events: none; transition: .2s ease;
+        }
+        .toast.show { opacity: 1; transform: translate(-50%, 0); }
+        .login {
+            display: none; max-width: 520px; margin: 18vh auto 0; padding: 28px; text-align: center;
+            border: 1px solid var(--line); border-radius: 18px; background: var(--panel); box-shadow: var(--shadow);
+        }
+        .login.show { display: block; }
+        @media (max-width: 980px) {
+            .stats { grid-template-columns: repeat(3, 1fr); }
+            .toolbar { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 620px) {
+            .shell { width: min(100% - 20px, 1480px); padding-top: 20px; }
+            .header { align-items: start; flex-direction: column; }
+            .stats { grid-template-columns: repeat(2, 1fr); }
+            .toolbar { grid-template-columns: 1fr; }
+            .drawer-panel { border-radius: 0; padding: 18px; }
+        }
+    </style>
+</head>
+<body>
+    <main class="shell" id="app" hidden>
+        <header class="header">
+            <div>
+                <div class="eyebrow">Bottle moderation console</div>
+                <h1>漂流瓶审核管理</h1>
+                <p class="subtitle">审核待处理内容，查看全部漂流瓶、评论和捡取记录。</p>
+            </div>
+            <div class="header-actions">
+                <button class="btn" id="refreshBtn">刷新</button>
+                <button class="btn" id="logoutBtn">退出登录</button>
+            </div>
+        </header>
+
+        <section class="stats" id="stats"></section>
+
+        <section class="toolbar">
+            <input id="keyword" placeholder="搜索 ID、内容、用户 ID 或昵称">
+            <select id="status">
+                <option value="">全部审核状态</option>
+                <option value="pending">待审核</option>
+                <option value="approved">已通过</option>
+                <option value="rejected">已拒绝</option>
+            </select>
+            <select id="location">
+                <option value="">全部位置</option>
+                <option value="sea">在海里</option>
+                <option value="home">已收回</option>
+            </select>
+            <button class="btn primary" id="searchBtn">查询</button>
+        </section>
+
+        <section class="table-card">
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID / 用户</th>
+                            <th>内容</th>
+                            <th>状态</th>
+                            <th>数据</th>
+                            <th>时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rows"></tbody>
+                </table>
+            </div>
+            <div class="empty" id="empty" hidden>没有符合条件的漂流瓶</div>
+            <div class="pagination">
+                <span id="pageInfo"></span>
+                <div>
+                    <button class="btn small" id="prevBtn">上一页</button>
+                    <button class="btn small" id="nextBtn">下一页</button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <section class="login" id="login">
+        <h2>管理会话未登录</h2>
+        <p class="subtitle">请让机器人主人发送 <code>#漂流瓶管理</code>，使用新生成的一次性链接打开本页面。</p>
+    </section>
+
+    <aside class="drawer" id="drawer">
+        <div class="drawer-panel">
+            <div class="drawer-head">
+                <div>
+                    <div class="eyebrow">Bottle detail</div>
+                    <h2 id="detailTitle">漂流瓶详情</h2>
+                </div>
+                <button class="btn" id="closeDrawer">关闭</button>
+            </div>
+            <div id="detail"></div>
+        </div>
+    </aside>
+    <div class="toast" id="toast"></div>
+
+    <script>
+        const state = { page: 1, pages: 1, pageSize: 20, currentId: null }
+        const $ = id => document.getElementById(id)
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, char => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            })[char])
+        }
+
+        function formatTime(value) {
+            if (!value) return '-'
+            return new Date(value).toLocaleString('zh-CN', { hour12: false })
+        }
+
+        function statusLabel(value) {
+            return ({ pending: '待审核', approved: '已通过', rejected: '已拒绝' })[value] || value
+        }
+
+        function locationLabel(value) {
+            return value === 'sea' ? '在海里' : '已收回'
+        }
+
+        function toast(message) {
+            $('toast').textContent = message
+            $('toast').classList.add('show')
+            clearTimeout(toast.timer)
+            toast.timer = setTimeout(() => $('toast').classList.remove('show'), 2200)
+        }
+
+        async function api(url, options = {}) {
+            const response = await fetch(url, {
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+                ...options
+            })
+            const data = await response.json().catch(() => ({}))
+            if (response.status === 401) {
+                $('app').hidden = true
+                $('login').classList.add('show')
+                throw new Error(data.message || '管理会话已失效')
+            }
+            if (!response.ok || data.ok === false) throw new Error(data.message || '请求失败')
+            return data.data ?? data
+        }
+
+        async function loadStats() {
+            const stats = await api('/bottle/api/stats')
+            const items = [
+                ['全部瓶子', stats.bottles.total, ''],
+                ['待审瓶子', stats.bottles.pending, 'pending'],
+                ['已通过', stats.bottles.approved, 'approved'],
+                ['已拒绝', stats.bottles.rejected, 'rejected'],
+                ['海中瓶子', stats.bottles.sea, ''],
+                ['待审评论', stats.comments.pending, 'pending']
+            ]
+            $('stats').innerHTML = items.map(([label, value, cls]) =>
+                `<article class="stat ${cls}"><span>${label}</span><strong>${value}</strong></article>`
+            ).join('')
+        }
+
+        async function loadBottles() {
+            const params = new URLSearchParams({
+                page: state.page,
+                pageSize: state.pageSize,
+                keyword: $('keyword').value.trim(),
+                status: $('status').value,
+                location: $('location').value
+            })
+            const data = await api(`/bottle/api/bottles?${params}`)
+            state.page = data.page
+            state.pages = data.pages
+            $('rows').innerHTML = data.rows.map(item => `
+                <tr>
+                    <td>
+                        <div class="id">${escapeHtml(item.id)}</div>
+                        <div>${escapeHtml(item.throwerName)}</div>
+                        <div class="meta">${escapeHtml(item.thrower)}</div>
+                    </td>
+                    <td><div class="content">${escapeHtml(item.content)}</div></td>
+                    <td>
+                        <span class="badge ${item.status}">${statusLabel(item.status)}</span>
+                        <span class="badge ${item.location}">${locationLabel(item.location)}</span>
+                    </td>
+                    <td>
+                        <div>捡取 ${item.pickupCount} 次</div>
+                        <div>评论 ${item.commentCount} 条</div>
+                        ${item.pendingCommentCount ? `<div class="meta">待审评论 ${item.pendingCommentCount}</div>` : ''}
+                    </td>
+                    <td>${formatTime(item.throwTime)}</td>
+                    <td>
+                        <div class="row-actions">
+                            <button class="btn small" data-detail="${item.id}">详情</button>
+                            <button class="btn small success" data-status="approved" data-id="${item.id}">通过</button>
+                            <button class="btn small warning" data-status="rejected" data-id="${item.id}">拒绝</button>
+                            <button class="btn small danger" data-delete="${item.id}">删除</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('')
+            $('empty').hidden = data.rows.length > 0
+            $('pageInfo').textContent = `第 ${data.page} / ${data.pages} 页，共 ${data.total} 个`
+            $('prevBtn').disabled = data.page <= 1
+            $('nextBtn').disabled = data.page >= data.pages
+        }
+
+        async function refresh() {
+            await Promise.all([loadStats(), loadBottles()])
+        }
+
+        async function changeBottle(id, changes) {
+            await api(`/bottle/api/bottles/${id}`, {
+                method: 'PATCH',
+                body: JSON.stringify(changes)
+            })
+            toast('操作成功')
+            await refresh()
+            if (state.currentId === id) await openDetail(id)
+        }
+
+        async function removeBottle(id) {
+            if (!confirm(`确定永久删除漂流瓶 ${id} 及其全部评论、捡取记录吗？`)) return
+            await api(`/bottle/api/bottles/${id}`, { method: 'DELETE' })
+            toast('漂流瓶已删除')
+            closeDetail()
+            await refresh()
+        }
+
+        async function changeComment(id, status) {
+            await api(`/bottle/api/comments/${id}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ status })
+            })
+            toast('评论状态已更新')
+            await Promise.all([loadStats(), openDetail(state.currentId)])
+        }
+
+        async function removeComment(id) {
+            if (!confirm('确定永久删除这条评论吗？')) return
+            await api(`/bottle/api/comments/${id}`, { method: 'DELETE' })
+            toast('评论已删除')
+            await Promise.all([loadStats(), openDetail(state.currentId)])
+        }
+
+        async function openDetail(id) {
+            const item = await api(`/bottle/api/bottles/${id}`)
+            state.currentId = id
+            $('detailTitle').textContent = `漂流瓶 ${item.id}`
+            $('detail').innerHTML = `
+                <div>
+                    <span class="badge ${item.status}">${statusLabel(item.status)}</span>
+                    <span class="badge ${item.location}">${locationLabel(item.location)}</span>
+                </div>
+                <div class="full-content">${escapeHtml(item.content)}</div>
+                <div class="section meta">
+                    扔出者：${escapeHtml(item.throwerName)} (${escapeHtml(item.thrower)})<br>
+                    扔出时间：${formatTime(item.throwTime)}<br>
+                    被捡次数：${item.pickupCount}
+                </div>
+                <div class="section row-actions">
+                    <button class="btn success" data-detail-status="approved">审核通过</button>
+                    <button class="btn warning" data-detail-status="rejected">审核拒绝</button>
+                    <button class="btn" data-detail-location="${item.location === 'sea' ? 'home' : 'sea'}">
+                        ${item.location === 'sea' ? '收回瓶子' : '重新投放'}
+                    </button>
+                    <button class="btn danger" data-detail-delete>永久删除</button>
+                </div>
+                <section class="section">
+                    <h3>评论 (${item.comments.length})</h3>
+                    ${item.comments.length ? item.comments.map(comment => `
+                        <article class="record">
+                            <div class="record-head">
+                                <strong>${escapeHtml(comment.userName)}</strong>
+                                <span class="badge ${comment.status}">${statusLabel(comment.status)}</span>
+                            </div>
+                            <div>${escapeHtml(comment.content)}</div>
+                            <div class="meta">${escapeHtml(comment.userId)} · ${formatTime(comment.time)}</div>
+                            <div class="record-actions">
+                                <button class="btn small success" data-comment="${comment.id}" data-comment-status="approved">通过</button>
+                                <button class="btn small warning" data-comment="${comment.id}" data-comment-status="rejected">拒绝</button>
+                                <button class="btn small danger" data-comment-delete="${comment.id}">删除</button>
+                            </div>
+                        </article>
+                    `).join('') : '<p class="meta">暂无评论</p>'}
+                </section>
+                <section class="section">
+                    <h3>最近捡取记录 (${item.pickupRecords.length})</h3>
+                    ${item.pickupRecords.length ? item.pickupRecords.map(record => `
+                        <article class="record">
+                            <strong>${escapeHtml(record.userName)}</strong>
+                            <div class="meta">${escapeHtml(record.userId)} · ${formatTime(record.time)}</div>
+                        </article>
+                    `).join('') : '<p class="meta">暂无捡取记录</p>'}
+                </section>
+            `
+            $('drawer').classList.add('open')
+        }
+
+        function closeDetail() {
+            state.currentId = null
+            $('drawer').classList.remove('open')
+        }
+
+        $('rows').addEventListener('click', event => {
+            const button = event.target.closest('button')
+            if (!button) return
+            if (button.dataset.detail) openDetail(button.dataset.detail).catch(error => toast(error.message))
+            if (button.dataset.status) changeBottle(button.dataset.id, { status: button.dataset.status }).catch(error => toast(error.message))
+            if (button.dataset.delete) removeBottle(button.dataset.delete).catch(error => toast(error.message))
+        })
+
+        $('detail').addEventListener('click', event => {
+            const button = event.target.closest('button')
+            if (!button) return
+            if (button.dataset.detailStatus) changeBottle(state.currentId, { status: button.dataset.detailStatus }).catch(error => toast(error.message))
+            if (button.dataset.detailLocation) changeBottle(state.currentId, { location: button.dataset.detailLocation }).catch(error => toast(error.message))
+            if (button.hasAttribute('data-detail-delete')) removeBottle(state.currentId).catch(error => toast(error.message))
+            if (button.dataset.commentStatus) changeComment(button.dataset.comment, button.dataset.commentStatus).catch(error => toast(error.message))
+            if (button.dataset.commentDelete) removeComment(button.dataset.commentDelete).catch(error => toast(error.message))
+        })
+
+        $('searchBtn').onclick = () => { state.page = 1; loadBottles().catch(error => toast(error.message)) }
+        $('keyword').onkeydown = event => { if (event.key === 'Enter') $('searchBtn').click() }
+        $('refreshBtn').onclick = () => refresh().then(() => toast('已刷新')).catch(error => toast(error.message))
+        $('prevBtn').onclick = () => { if (state.page > 1) { state.page--; loadBottles().catch(error => toast(error.message)) } }
+        $('nextBtn').onclick = () => { if (state.page < state.pages) { state.page++; loadBottles().catch(error => toast(error.message)) } }
+        $('closeDrawer').onclick = closeDetail
+        $('drawer').onclick = event => { if (event.target === $('drawer')) closeDetail() }
+        $('logoutBtn').onclick = async () => {
+            await api('/bottle/api/logout', { method: 'POST' })
+            location.reload()
+        }
+
+        api('/bottle/api/session')
+            .then(async () => {
+                $('app').hidden = false
+                await refresh()
+            })
+            .catch(error => toast(error.message))
+    </script>
+</body>
+</html>

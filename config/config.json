@@ -1,0 +1,33 @@
+{
+  "moderation": {
+    "enabled": true,
+    "provider": "gemini",
+    "failPolicy": "pending",
+    "timeout": 15000,
+    "openai": {
+      "apiKey": "",
+      "baseUrl": "https://api.openai.com/v1",
+      "model": "gpt-4.1-mini"
+    },
+    "gemini": {
+      "apiKey": "",
+      "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
+      "model": "gemini-2.0-flash"
+    }
+  },
+  "limits": {
+    "maxBottlesPerUser": 100,
+    "maxCommentsPerBottle": 50,
+    "maxCommentsDisplay": 10,
+    "maxBottleLength": 500,
+    "maxCommentLength": 200
+  },
+  "cooldowns": {
+    "pickupSeconds": 1,
+    "reclaimSeconds": 60
+  },
+  "output": {
+    "markdown": true,
+    "buttons": true
+  }
+}
