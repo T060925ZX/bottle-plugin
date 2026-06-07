@@ -24,7 +24,8 @@ function cooldownRemaining(key, seconds) {
 function moderationMessage(result) {
     if (result.status === 'approved') return '内容已通过审核'
     if (result.status === 'pending') return result.reason
-    return `内容未通过审核：${result.reason}`
+    // return `内容未通过审核：${result.reason}`
+    return `内容未通过审核`
 }
 
 export class DriftBottle extends plugin {
