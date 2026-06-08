@@ -128,13 +128,24 @@ export class DriftBottle extends plugin {
             : result.status === 'pending'
                 ? '漂流瓶等待人工审核'
                 : '漂流瓶未通过审核'
+
+        // 根据审核状态决定是否显示原文
+        let contentDisplay = ''
+        if (result.status === 'approved') {
+            contentDisplay = codeBlock(content)
+        } else if (result.status === 'pending') {
+            contentDisplay = '> 内容正在审核中，通过后才会显示'
+        } else {
+            contentDisplay = '> 内容未通过审核，已被屏蔽'
+        }
+
         await sendReply(e, document(
             heading(title),
             fields([
                 ['瓶子 ID', bottleId],
                 ['审核结果', moderationMessage(result)]
             ]),
-            codeBlock(content)
+            contentDisplay
         ), [
             commonButtons.throw(),
             commonButtons.pickup(),
@@ -247,13 +258,24 @@ export class DriftBottle extends plugin {
             : result.status === 'pending'
                 ? '评论等待人工审核'
                 : '评论未通过审核'
+
+        // 根据审核状态决定是否显示评论原文
+        let contentDisplay = ''
+        if (result.status === 'approved') {
+            contentDisplay = codeBlock(content)
+        } else if (result.status === 'pending') {
+            contentDisplay = '> 评论正在审核中，通过后才会显示'
+        } else {
+            contentDisplay = '> 评论未通过审核，已被屏蔽'
+        }
+
         await sendReply(e, document(
             heading(title),
             fields([
                 ['漂流瓶 ID', bottleId],
                 ['审核结果', moderationMessage(result)]
             ]),
-            codeBlock(content)
+            contentDisplay
         ), [
             commonButtons.comments(bottleId),
             commonButtons.comment(bottleId),
